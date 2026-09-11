@@ -1,7 +1,7 @@
 """
 Setup:
-1. Get your API key from https://cloud.browser-use.com/new-api-key
-2. Set environment variable: export BROWSER_USE_API_KEY="your-key"
+1. Get your API key from https://aistudio.google.com/apikey
+2. Set environment variable: export GOOGLE_API_KEY="your-key"
 """
 
 import asyncio
@@ -15,14 +15,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from browser_use import Agent, ChatBrowserUse
+from browser_use import Agent, ChatGoogle
 
 
 async def main():
-	llm = ChatBrowserUse(model='bu-2-0-mini-preview')
-	task = "Search Google for 'what is browser automation' and tell me the top 3 results"
-	agent = Agent(task=task, llm=llm)
-	await agent.run()
+	llm = ChatGoogle(model='gemini-3.5-flash-lite', api_key=os.getenv('GOOGLE_API_KEY'))
+	fallback_llm = ChatGoogle(model='gemini-3.1-flash-lite', api_key=os.getenv('GOOGLE_API_KEY'))
+	default_task = "Search Google for 'what is browser automation' and tell me the top 3 results"
+	task = ' '.join(sys.argv[1:]) or input('What should the agent do? (Enter for the default search)\n> ').strip() or default_task
+	agent = Agent(task=task, llm=llm, fallback_llm=fallback_llm)
+	history = await agent.run()
+	print('\n=== ANSWER ===\n' + (history.final_result() or '(no answer - the task did not finish)'))
 
 
 if __name__ == '__main__':
