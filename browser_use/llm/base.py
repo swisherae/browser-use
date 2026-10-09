@@ -46,6 +46,16 @@ class BaseChatModel(Protocol):
 		# for legacy support
 		return self.model
 
+	@property
+	def supports_vision(self) -> bool:
+		"""Whether this model can be sent screenshots.
+
+		Defaults to True, with the known exceptions by model family below. A provider that knows
+		its own capabilities should override this instead of relying on the name.
+		"""
+		name = self.model.lower()
+		return not ('grok-3' in name or 'grok-code' in name)
+
 	@overload
 	async def ainvoke(
 		self, messages: list[BaseMessage], output_format: None = None, **kwargs: Any

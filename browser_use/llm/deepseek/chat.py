@@ -50,6 +50,11 @@ class ChatDeepSeek(BaseChatModel):
 	def provider(self) -> str:
 		return 'deepseek'
 
+	@property
+	def supports_vision(self) -> bool:
+		# DeepSeek's chat models are text only, so screenshots cannot be sent to them.
+		return False
+
 	def _client(self) -> AsyncOpenAI:
 		api_key = self.api_key or os.getenv('DEEPSEEK_API_KEY')
 		if not api_key:
