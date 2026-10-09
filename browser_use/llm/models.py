@@ -12,6 +12,7 @@ Usage:
 """
 
 import os
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from browser_use.llm.azure.chat import ChatAzureOpenAI
@@ -84,6 +85,73 @@ bu_latest: 'BaseChatModel'
 bu_1_0: 'BaseChatModel'
 bu_2_0: 'BaseChatModel'
 bu_2_0_mini_preview: 'BaseChatModel'
+
+
+def _create_openai(model: str, model_part: str) -> 'BaseChatModel':
+	return ChatOpenAI(model=model, api_key=os.getenv('OPENAI_API_KEY'))
+
+
+def _create_azure(model: str, model_part: str) -> 'BaseChatModel':
+	api_key = os.getenv('AZURE_OPENAI_KEY') or os.getenv('AZURE_OPENAI_API_KEY')
+	return ChatAzureOpenAI(model=model, api_key=api_key, azure_endpoint=os.getenv('AZURE_OPENAI_ENDPOINT'))
+
+
+def _create_google(model: str, model_part: str) -> 'BaseChatModel':
+	return ChatGoogle(model=model, api_key=os.getenv('GOOGLE_API_KEY'))
+
+
+def _create_anthropic(model: str, model_part: str) -> 'BaseChatModel':
+	from browser_use.llm.anthropic.chat import ChatAnthropic
+
+	return ChatAnthropic(model=model, api_key=os.getenv('ANTHROPIC_API_KEY'))
+
+
+def _create_mistral(model: str, model_part: str) -> 'BaseChatModel':
+	mistral_map = {
+		'large': 'mistral-large-latest',
+		'medium': 'mistral-medium-latest',
+		'small': 'mistral-small-latest',
+		'codestral': 'codestral-latest',
+		'pixtral-large': 'mistral-medium-latest',
+	}
+	normalized_model_part = model_part.replace('_', '-')
+	resolved_model = mistral_map.get(normalized_model_part, model.replace('_', '-'))
+	base_url = os.getenv('MISTRAL_BASE_URL', 'https://api.mistral.ai/v1')
+	return ChatMistral(model=resolved_model, api_key=os.getenv('MISTRAL_API_KEY'), base_url=base_url)
+
+
+def _create_oci(model: str, model_part: str) -> 'BaseChatModel':
+	# OCI needs more configuration than environment variables can supply, so it has no shorthand.
+	raise ValueError('OCI models require manual configuration. Use ChatOCIRaw directly with your OCI credentials.')
+
+
+def _create_cerebras(model: str, model_part: str) -> 'BaseChatModel':
+	return ChatCerebras(model=model, api_key=os.getenv('CEREBRAS_API_KEY'))
+
+
+def _create_browser_use(model: str, model_part: str) -> 'BaseChatModel':
+	# bu_latest -> bu-latest: the provider prefix is part of the model name here
+	return ChatBrowserUse(model=f'bu-{model_part.replace("_", "-")}', api_key=os.getenv('BROWSER_USE_API_KEY'))
+
+
+def _create_deepseek(model: str, model_part: str) -> 'BaseChatModel':
+	from browser_use.llm.deepseek.chat import ChatDeepSeek
+
+	return ChatDeepSeek(model=model, api_key=os.getenv('DEEPSEEK_API_KEY'))
+
+
+# Adding a provider means adding one entry here, not editing get_llm_by_name().
+_PROVIDER_FACTORIES: dict[str, Callable[[str, str], 'BaseChatModel']] = {
+	'openai': _create_openai,
+	'azure': _create_azure,
+	'google': _create_google,
+	'anthropic': _create_anthropic,
+	'mistral': _create_mistral,
+	'oci': _create_oci,
+	'cerebras': _create_cerebras,
+	'bu': _create_browser_use,
+	'deepseek': _create_deepseek,
+}
 
 
 def get_llm_by_name(model_name: str):
@@ -164,65 +232,11 @@ def get_llm_by_name(model_name: str):
 	else:
 		model = model_part.replace('_', '-')
 
-	# OpenAI Models
-	if provider == 'openai':
-		api_key = os.getenv('OPENAI_API_KEY')
-		return ChatOpenAI(model=model, api_key=api_key)
+	create = _PROVIDER_FACTORIES.get(provider)
+	if create is None:
+		raise ValueError(f"Unknown provider: '{provider}'. Available providers: {', '.join(_PROVIDER_FACTORIES)}")
 
-	# Azure OpenAI Models
-	elif provider == 'azure':
-		api_key = os.getenv('AZURE_OPENAI_KEY') or os.getenv('AZURE_OPENAI_API_KEY')
-		azure_endpoint = os.getenv('AZURE_OPENAI_ENDPOINT')
-		return ChatAzureOpenAI(model=model, api_key=api_key, azure_endpoint=azure_endpoint)
-
-	# Google Models
-	elif provider == 'google':
-		api_key = os.getenv('GOOGLE_API_KEY')
-		return ChatGoogle(model=model, api_key=api_key)
-
-	# Anthropic Models
-	elif provider == 'anthropic':
-		from browser_use.llm.anthropic.chat import ChatAnthropic
-
-		api_key = os.getenv('ANTHROPIC_API_KEY')
-		return ChatAnthropic(model=model, api_key=api_key)
-
-	# Mistral Models
-	elif provider == 'mistral':
-		api_key = os.getenv('MISTRAL_API_KEY')
-		base_url = os.getenv('MISTRAL_BASE_URL', 'https://api.mistral.ai/v1')
-		mistral_map = {
-			'large': 'mistral-large-latest',
-			'medium': 'mistral-medium-latest',
-			'small': 'mistral-small-latest',
-			'codestral': 'codestral-latest',
-			'pixtral-large': 'mistral-medium-latest',
-		}
-		normalized_model_part = model_part.replace('_', '-')
-		resolved_model = mistral_map.get(normalized_model_part, model.replace('_', '-'))
-		return ChatMistral(model=resolved_model, api_key=api_key, base_url=base_url)
-
-	# OCI Models
-	elif provider == 'oci':
-		# OCI requires more complex configuration that can't be easily inferred from env vars
-		# Users should use ChatOCIRaw directly with proper configuration
-		raise ValueError('OCI models require manual configuration. Use ChatOCIRaw directly with your OCI credentials.')
-
-	# Cerebras Models
-	elif provider == 'cerebras':
-		api_key = os.getenv('CEREBRAS_API_KEY')
-		return ChatCerebras(model=model, api_key=api_key)
-
-	# Browser Use Models
-	elif provider == 'bu':
-		# Handle bu_latest -> bu-latest conversion (need to prepend 'bu-' back)
-		model = f'bu-{model_part.replace("_", "-")}'
-		api_key = os.getenv('BROWSER_USE_API_KEY')
-		return ChatBrowserUse(model=model, api_key=api_key)
-
-	else:
-		available_providers = ['openai', 'azure', 'google', 'anthropic', 'mistral', 'oci', 'cerebras', 'bu']
-		raise ValueError(f"Unknown provider: '{provider}'. Available providers: {', '.join(available_providers)}")
+	return create(model, model_part)
 
 
 # Pre-configured model instances (lazy loaded via __getattr__)
