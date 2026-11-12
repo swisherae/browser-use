@@ -272,6 +272,14 @@ class SecurityWatchdog(BaseWatchdog):
 				# Pattern like brave://* or http*://example.com/*
 				if fnmatch.fnmatch(url, pattern):
 					return True
+			elif pattern.startswith('*') and len(pattern) > 1 and '://' not in pattern:
+				# Host glob like *google.com. Anchor it at a domain boundary, otherwise fnmatch
+				# also matches evilgoogle.com, which is a different registrable domain.
+				domain_part = pattern[1:]
+				if host == domain_part or host.endswith('.' + domain_part):
+					# Only match http/https URLs for domain-only patterns
+					if scheme in ['http', 'https']:
+						return True
 			else:
 				# Use fnmatch for other glob patterns
 				if fnmatch.fnmatch(
