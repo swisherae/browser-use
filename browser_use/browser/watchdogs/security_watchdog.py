@@ -249,6 +249,19 @@ class SecurityWatchdog(BaseWatchdog):
 
 		return True
 
+	@staticmethod
+	def _host_is_within_domain(host: str, domain: str, scheme: str) -> bool:
+		"""True when host is `domain` itself or a subdomain of it, for http/https only.
+
+		Single definition of the domain-boundary rule, so every glob form in _is_url_match
+		anchors identically. Matching a bare suffix is what let `*google.com` accept
+		`evilgoogle.com`.
+		"""
+		if host != domain and not host.endswith('.' + domain):
+			return False
+		# Only match http/https URLs for domain-only patterns
+		return scheme in ['http', 'https']
+
 	def _is_url_match(self, url: str, host: str, scheme: str, pattern: str) -> bool:
 		"""Check if a URL matches a pattern."""
 
@@ -263,23 +276,17 @@ class SecurityWatchdog(BaseWatchdog):
 			# Check if pattern matches the host
 			if pattern.startswith('*.'):
 				# Pattern like *.example.com should match subdomains and main domain
-				domain_part = pattern[2:]  # Remove *.
-				if host == domain_part or host.endswith('.' + domain_part):
-					# Only match http/https URLs for domain-only patterns
-					if scheme in ['http', 'https']:
-						return True
+				if self._host_is_within_domain(host, pattern[2:], scheme):
+					return True
 			elif pattern.endswith('/*'):
 				# Pattern like brave://* or http*://example.com/*
 				if fnmatch.fnmatch(url, pattern):
 					return True
 			elif pattern.startswith('*') and len(pattern) > 1 and '://' not in pattern:
-				# Host glob like *google.com. Anchor it at a domain boundary, otherwise fnmatch
-				# also matches evilgoogle.com, which is a different registrable domain.
-				domain_part = pattern[1:]
-				if host == domain_part or host.endswith('.' + domain_part):
-					# Only match http/https URLs for domain-only patterns
-					if scheme in ['http', 'https']:
-						return True
+				# Host glob like *google.com, anchored the same way as *.google.com so it cannot
+				# match evilgoogle.com, which is a different registrable domain.
+				if self._host_is_within_domain(host, pattern[1:], scheme):
+					return True
 			else:
 				# Use fnmatch for other glob patterns
 				if fnmatch.fnmatch(
