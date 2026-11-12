@@ -168,6 +168,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		output_model_schema: type[AgentStructuredOutput] | None = None,
 		extraction_schema: dict | None = None,
 		use_vision: bool | Literal['auto'] = True,
+		allow_vision_with_sensitive_data: bool = False,
 		save_conversation_path: str | Path | None = None,
 		save_conversation_path_encoding: str | None = 'utf-8',
 		max_failures: int = 5,
@@ -309,6 +310,17 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 
 		# Initialize available file paths as direct attribute
 		self.available_file_paths = available_file_paths
+
+		# Screenshots are not redacted, so a secret typed into a page is readable in the image even
+		# though it is masked in the message text. Turn vision off while sensitive_data is in use
+		# unless the caller opts in. Done before the tools are built so the screenshot action is
+		# excluded too, not just the automatically attached screenshots.
+		if sensitive_data and use_vision is not False and not allow_vision_with_sensitive_data:
+			logger.warning(
+				'sensitive_data is set, so screenshots are disabled: secret values are masked in text but not in images. '
+				'Pass allow_vision_with_sensitive_data=True to override.'
+			)
+			use_vision = False
 
 		# Set up tools first (needed to detect output_model_schema)
 		if tools is not None:
