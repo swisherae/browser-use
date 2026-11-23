@@ -38,7 +38,7 @@
 
 ## Changes to the code
 
-One file changed: `examples/getting_started/01_basic_search.py`.
+Two example files changed: `examples/getting_started/01_basic_search.py`, described here, and `examples/getting_started/04_multi_step_task.py`, described after the diff below.
 
 - Uses Gemini (`gemini-3.5-flash-lite`) instead of browser-use's paid service, passing the key explicitly.
 - Adds a backup model with `fallback_llm` (`gemini-3.1-flash-lite`). The Agent switches to it on a `429` or `503`, and it has its own quota.
@@ -86,6 +86,10 @@ index ba4f26f4c..e60acb1b7 100644
  
  if __name__ == '__main__':
 ```
+
+### `04_multi_step_task.py`
+
+The same model swap, so this example also runs on the free tier. It now uses `ChatGoogle('gemini-3.5-flash-lite')` with a `gemini-3.1-flash-lite` fallback, and its setup comment points to Google AI Studio instead of browser-use Cloud. Its multi-step task is unchanged, and it still has no command-line task input.
 
 ## Runs that worked
 
