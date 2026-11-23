@@ -10,8 +10,8 @@ This example demonstrates how to:
 This is the most advanced getting started example, combining all previous concepts.
 
 Setup:
-1. Get your API key from https://cloud.browser-use.com/new-api-key
-2. Set environment variable: export BROWSER_USE_API_KEY="your-key"
+1. Get your API key from https://aistudio.google.com/apikey
+2. Set environment variable: export GOOGLE_API_KEY="your-key"
 """
 
 import asyncio
@@ -25,12 +25,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from browser_use import Agent, ChatBrowserUse
+from browser_use import Agent, ChatGoogle
 
 
 async def main():
 	# Initialize the model
-	llm = ChatBrowserUse(model='bu-2-0-mini-preview')
+	llm = ChatGoogle(model='gemini-3.5-flash-lite', api_key=os.getenv('GOOGLE_API_KEY'))
+	fallback_llm = ChatGoogle(model='gemini-3.1-flash-lite', api_key=os.getenv('GOOGLE_API_KEY'))
 
 	# Define a multi-step task
 	task = """
@@ -50,7 +51,7 @@ async def main():
     """
 
 	# Create and run the agent
-	agent = Agent(task=task, llm=llm)
+	agent = Agent(task=task, llm=llm, fallback_llm=fallback_llm)
 	await agent.run()
 
 
